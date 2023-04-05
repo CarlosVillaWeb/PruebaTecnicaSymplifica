@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Seleccionar Productos</title>
+
+</head>
+<body>
+<h2>Productos disponibles</h2>
+<table>
+  <thead>
+  <tr>
+    <th>Nombre del producto</th>
+    <th>Precio</th>
+    <th>Seleccionar</th>
+  </tr>
+  </thead>
+  <tbody>
+  <!-- Iteramos sobre la lista de productos disponibles -->
+  <tr th:each="producto : ${list}">
+    <td th:text="${producto.name}"></td>
+    <td th:text="${producto.price}"></td>
+    <!-- Utilizamos un checkbox para permitir la selección del producto -->
+    <td><input type="checkbox" name="productoSeleccionado" th:value="${producto.id}"/></td>
+  </tr>
+  </tbody>
+</table>
+
+<!-- Utilizamos un botón para agregar los productos seleccionados a la tabla de la derecha -->
+<button onclick="agregarProductos()">Agregar Productos</button>
+
+<h2>Productos seleccionados</h2>
+<table>
+  <thead>
+  <tr>
+    <th>Nombre del producto</th>
+    <th>Precio</th>
+  </tr>
+  </thead>
+  <tbody id="productosSeleccionados">
+  <!-- Utilizamos Thymeleaf para iterar sobre la lista de productos seleccionados -->
+  <tr th:each="producto : ${productosSeleccionados}">
+    <td th:text="${producto.name}"></td>
+    <td th:text="${producto.price}"></td>
+  </tr>
+  </tbody>
+</table>
+
+<br>
+<button onclick="completarOrden()">Completar Orden</button>
+
+<h2>Ordenes Realizadas</h2>
+<table>
+  <thead>
+  <tr>
+    <th>Numero de orden</th>
+    <th>Nombre del producto</th>
+    <th>Precio</th>
+  </tr>
+  </thead>
+  <tbody id="productosOrdenados">
+  <!-- Iteramos sobre la lista de productos ordenados -->
+  <tr th:each="orden, ordenIndex : ${order}">
+    <td th:text="${orden.id}"></td>
+    <td th:text="${orden.products.name}"></td>
+    <td th:text="${orden.products.price}"></td>
+  </tr>
+  </tbody>
+</table>
+
+<script>
+
+        async function completarOrden() {
+          var checkboxes = document.querySelectorAll('input[name="productoSeleccionado"]:checked');
+          var productosOrdenados = await getAllOrders();
+
+          // Iteramos sobre las ordenes en la BD y agregamos los productos correspondientes a la lista
+
+            for (var i = 0; i < checkboxes.length; i++) {
+				var productoId = checkboxes[i].value;
+				var producto = await getProductobyId(productoId);
+				var productoPedido = await setOrder(producto);
+				productosOrdenados = await getAllOrders();
+				//console.log(productoPedido);
+			}
+
+          // Actualizamos la vista de ordenes
+
+			var template = document.querySelector('#productosOrdenadosTemplate');
+			var templateContent = template.innerHTML;
+			console.log(productosOrdenados);
+			var rendered = Mustache.render(templateContent, { productosOrdenados: productosOrdenados });
+			document.querySelector('#productosOrdenados').innerHTML = rendered;
+
+		  // Insertamos los datos a la BD
+		  //var productoPedido = await setOrder(productosOrdenados);
+        }
+
+		async function agregarProductos() {
+			// Obtenemos todos los checkboxes que estén seleccionados
+			var checkboxes = document.querySelectorAll('input[name="productoSeleccionado"]:checked');
+			var productosSeleccionados = [];
+
+			// Iteramos sobre los checkboxes seleccionados y agregamos los productos correspondientes a la lista
+			for (var i = 0; i < checkboxes.length; i++) {
+				var productoId = checkboxes[i].value;
+				var producto = await getProductobyId(productoId);
+				console.log(producto);
+				productosSeleccionados.push(producto);
+			}
+        console.log(productosSeleccionados);
+			// Actualizamos la lista de productos seleccionados en la tabla de la derecha utilizando Thymeleaf
+			var template = document.querySelector('#productosSeleccionadosTemplate');
+			var templateContent = template.innerHTML;
+			var rendered = Mustache.render(templateContent, { productosSeleccionados: productosSeleccionados });
+			document.querySelector('#productosSeleccionados').innerHTML = rendered;
+		}
+
+//---------------------------------------------------------------------------------------------------------
+
+                                      /*
+                                              function getProductobyId(id) {
+                                                  // Simulamos una llamada a una API para obtener el producto correspondiente al ID
+                                                  var productosDisponibles = ${productosDisponibles};
+                                                  for (var i = 0; i < productosDisponibles.length; i++) {
+                                                      if (productosDisponibles[i].id === id) {
+                                                          return productosDisponibles[i];
+                                                      }
+                                                  }
+                                                  return null;
+                                              }
+                                              */
+
+                                              /*
+                                            function getProductobyId(id) {
+                                              var xhttp = new XMLHttpRequest();
+                                              var product = new Object();
+                                              xhttp.onreadystatechange = function() {
+                                                if (this.readyState == 4 && this.status == 200) {
+                                                  product = JSON.parse(this.responseText);
+                                                  //console.log(product);
+                                                  //return product;
+                                                }
+                                              };
+                                              xhttp.open("GET", "/products/" + id, true);
+                                              xhttp.send();
+
+                                              if (product.id === id) {
+                                                console.log(product);
+                                                          return product;
+                                                      }
+                                            }
+                                            */
+
+//----------------------------------------------------------------------------------------------------------
+
+      function setOrder(productosOrdenados){
+
+        // Hacer la solicitud POST a la API
+        fetch('/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(productosOrdenados)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error al guardar los productos');
+        }
+        console.log('Productos guardados exitosamente');
+      })
+      .catch(error => {
+        console.error('Error al guardar los productos:', error);
+      });
+
+      }
+
+      function getAllOrders() {
+	// Hacemos una llamada a la API para obtener las ordenes
+	return fetch('/orders')
+		.then(response => {
+			if (!response.ok) {
+				throw new Error('Error al obtener las ordenes');
+			}
+			return response.json();
+		})
+		.then(order => {
+			return order;
+		})
+		.catch(error => {
+			console.error('Error al obtener la orden:', error);
+			return null;
+		});
+    }
+
+      function getProductobyId(id) {
+	// Hacemos una llamada a la API para obtener el producto correspondiente al ID
+	return fetch('/products/' + id)
+		.then(response => {
+			if (!response.ok) {
+				throw new Error('Error al obtener el producto');
+			}
+			return response.json();
+		})
+		.then(producto => {
+			return producto;
+		})
+		.catch(error => {
+			console.error('Error al obtener el producto:', error);
+			return null;
+		});
+    }
+
+	</script>
+<script src="https://unpkg.com/mustache@latest"></script>
+<!-- Utilizamos un template de Mustache para renderizar la lista de productos seleccionados en la tabla de la derecha -->
+<template id="productosSeleccionadosTemplate">
+  {{#productosSeleccionados}}
+  <tr>
+    <td>{{name}}</td>
+    <td>{{price}}</td>
+  </tr>
+  {{/productosSeleccionados}}
+</template>
+
+<template id="productosOrdenadosTemplate">
+  {{#productosOrdenados}}
+  <tr>
+    <td>{{id}}</td>
+    <td>{{products.name}}</td>
+    <td>{{products.price}}</td>
+  </tr>
+  {{/productosOrdenados}}
+</template>
+</body>
+</html>
